@@ -7,5 +7,6 @@ import org.springframework.boot.runApplication
 class UniCycleBackendApplication
 
 fun main(args: Array<String>) {
+	println("hi this is a test")
 	runApplication<UniCycleBackendApplication>(*args)
 }
