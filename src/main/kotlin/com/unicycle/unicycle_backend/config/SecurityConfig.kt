@@ -24,27 +24,29 @@ class SecurityConfig {
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         http
             .csrf { it.disable() }
-            .cors { } // Enable CORS with default settings or your bean below
-            .sessionManagement {
-                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            }
+            .cors { }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers("/api/auth/**").permitAll()
+                auth.requestMatchers(
+                    "/api/v1/auth/**",
+                    "/test"
+                ).permitAll()
                 auth.anyRequest().authenticated()
             }
 
         return http.build()
     }
 
-    // This allows the React frontend to actually make requests to the backend
     @Bean
     fun corsFilter(): CorsFilter {
         val source = UrlBasedCorsConfigurationSource()
         val config = CorsConfiguration()
+
         config.allowCredentials = true
-        config.addAllowedOrigin("http://localhost:3000") // React's default port
+        config.addAllowedOrigin("http://localhost:3000")
         config.addAllowedHeader("*")
         config.addAllowedMethod("*")
+
         source.registerCorsConfiguration("/**", config)
         return CorsFilter(source)
     }
