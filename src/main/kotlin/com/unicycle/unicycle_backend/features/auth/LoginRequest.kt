@@ -1,0 +1,6 @@
+package com.unicycle.unicycle_backend.features.auth
+
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
