@@ -3,56 +3,70 @@ package com.unicycle.unicycle_backend.config
 import com.unicycle.unicycle_backend.filter.JwtAuthenticationFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.security.authentication.AuthenticationManager
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
-import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import org.springframework.web.filter.CorsFilter
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.core.userdetails.UserDetailsService
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder
+import org.springframework.security.core.userdetails.UsernameNotFoundException
+import com.unicycle.unicycle_backend.features.user.UserRepository // Adjust package as needed
+import org.springframework.context.annotation.Lazy
+import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration
+import org.springframework.security.core.userdetails.User
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
 class SecurityConfig(
-    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
-    private val userDetailsService: UserDetailsService
+    @Lazy
+    private val userRepository: UserRepository // Only inject what you need for the UserDetailsService
 ) {
 
     @Bean
-    fun authenticationManager(http: HttpSecurity): AuthenticationManager {
-        return http.getSharedObject(AuthenticationManagerBuilder::class.java).build()
+    fun userDetailsService(): UserDetailsService {
+        return UserDetailsService { email ->
+            userRepository.findByEmail(email)
+                .map { user ->
+                    User.withUsername(user.email)
+                        .password(user.password)
+                        .authorities("USER")
+                        .build()
+                }
+                .orElseThrow { UsernameNotFoundException("User not found") }
+        }
     }
 
     @Bean
-    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+    fun filterChain(
+        http: HttpSecurity,
+        jwtAuthenticationFilter: JwtAuthenticationFilter // Inject it HERE instead of the constructor
+    ): SecurityFilterChain {
         http
             .csrf { it.disable() }
-            .cors { } // Enable CORS with default settings or your bean below
-            .sessionManagement {
-                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers("/api/auth/**").permitAll()
+                auth.requestMatchers("/api/v1/auth/**").permitAll()
                 auth.anyRequest().authenticated()
             }
+            // Now use the parameter passed into the method
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
     }
 
-    // This allows the React frontend to actually make requests to the backend
     @Bean
     fun corsFilter(): CorsFilter {
         val source = UrlBasedCorsConfigurationSource()
         val config = CorsConfiguration()
         config.allowCredentials = true
-        config.addAllowedOrigin("http://localhost:3000") // React's default port
+        // If your frontend is Vite, it might be on 5173.
+        // For standard React (CRA), it's 3000.
+        config.addAllowedOrigin("http://localhost:3000")
+        config.addAllowedOrigin("http://localhost:5173")
         config.addAllowedHeader("*")
         config.addAllowedMethod("*")
         source.registerCorsConfiguration("/**", config)
@@ -60,7 +74,14 @@ class SecurityConfig(
     }
 
     @Bean
-    fun configureAuthenticationManager(auth: AuthenticationManagerBuilder) {
-        auth.userDetailsService(userDetailsService)
+    fun passwordEncoder(): PasswordEncoder {
+        return BCryptPasswordEncoder()
     }
+
+    @Bean
+    @Throws(Exception::class)
+    fun authenticationManager(config: AuthenticationConfiguration): AuthenticationManager {
+        return config.authenticationManager
+    }
+
 }
