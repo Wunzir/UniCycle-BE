@@ -56,6 +56,8 @@ dependencies {
 	testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter-test:4.0.1")
 	testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	developmentOnly("org.springframework.boot:spring-boot-devtools")
 }
 
 kotlin {
